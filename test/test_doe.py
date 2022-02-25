@@ -4,54 +4,71 @@ import numpy as np
 import pytest
 from pytest import mark
 
-from doe import create_fact_plan
+from datascience_common_functions.doe import create_fact_plan
+
+# 2x2 case
+data_2x2_in = pd.DataFrame(data=np.array([[0, 10],
+                                          [1, 20]]),
+                           index=["min", "max"],
+                           columns=["feat1", "feat2"]
+                           )
+
+data_2x2_plan = pd.DataFrame(data=np.array([[0, 10],
+                                            [1, 10],
+                                            [0, 20],
+                                            [1, 20]]),
+                             index=[0, 1, 2, 3],
+                             columns=["feat1", "feat2"]
+                             )
+
+data_2x2_rep2_plan = pd.DataFrame(data=np.array([[0, 10],
+                                                 [1, 10],
+                                                 [0, 20],
+                                                 [1, 20],
+                                                 [0, 10],
+                                                 [1, 10],
+                                                 [0, 20],
+                                                 [1, 20]]),
+                                  index=[i for i in range(8)],
+                                  columns=["feat1", "feat2"]
+                                  )
+
+# 3x2 case
+data_3x2_in = pd.DataFrame(data=np.array([[0, 10, 50],
+                                          [1, 20, 60]]),
+                           index=["min", "max"],
+                           columns=["feat1", "feat2", "feat3"]
+                           )
+
+data_3x2_plan = pd.DataFrame(data=np.array([[0, 10, 50],
+                                            [1, 10, 50],
+                                            [0, 20, 50],
+                                            [1, 20, 50],
+                                            [0, 10, 60],
+                                            [1, 10, 60],
+                                            [0, 20, 60],
+                                            [1, 20, 60]]),
+                             index=[i for i in range(8)],
+                             columns=["feat1", "feat2", "feat3"]
+                             )
 
 
+@mark.unit
 class TestDOE:
-    def test_nominal(self):
-
-        # 2x2 case
-        data_2x2_in = pd.DataFrame(data=np.array([[0, 10],
-                                                  [1, 20]]),
-                                   index=["min", "max"],
-                                   columns=["feat1", "feat2"]
-                                   )
-
-        data_2x2_plan = pd.DataFrame(data=np.array([[0, 10],
-                                                    [1, 10],
-                                                    [0, 20],
-                                                    [1, 20]]),
-                                     index=[0, 1, 2, 3],
-                                     columns=["feat1", "feat2"]
-                                     )
+    @pytest.mark.parametrize("data_input, data_plan", [(data_2x2_in, data_2x2_plan), (data_3x2_in, data_3x2_plan)])
+    def test_nominal(self, data_input, data_plan):
 
         try:
-            pd.testing.assert_frame_equal(create_fact_plan(data_2x2_in), data_2x2_plan)
+            pd.testing.assert_frame_equal(create_fact_plan(data_input), data_plan)
         except AssertionError:
             pytest.fail("Test failed on 2x2 nominal case.")
 
-        # 3x2 case
-        data_3x2_in = pd.DataFrame(data=np.array([[0, 10, 50],
-                                                  [1, 20, 60]]),
-                                   index=["min", "max"],
-                                   columns=["feat1", "feat2", "feat3"]
-                                   )
+    def test_replication(self):
 
-        data_3x2_plan = pd.DataFrame(data=np.array([[0, 10, 50],
-                                                    [1, 10, 50],
-                                                    [0, 20, 50],
-                                                    [1, 20, 50],
-                                                    [0, 10, 60],
-                                                    [1, 10, 60],
-                                                    [0, 20, 60],
-                                                    [1, 20, 60]]),
-                                     index=[i for i in range(8)],
-                                     columns=["feat1", "feat2", "feat3"]
-                                     )
         try:
-            pd.testing.assert_frame_equal(create_fact_plan(data_3x2_in), data_3x2_plan)
+            pd.testing.assert_frame_equal(create_fact_plan(data_2x2_in, replication_factor=2), data_2x2_rep2_plan)
         except AssertionError:
-            pytest.fail("Test failed on 3x2 nominal case.")
+            pytest.fail("Test failed on 2x2 nominal case.")
 
     def test_NaN(self):
 
@@ -143,24 +160,27 @@ class TestDOE:
         with pytest.raises(AttributeError):
             create_fact_plan(data_2x2_in)
 
-    def test_unknown_method(self):
+    def test_rep_factor_type(self):
 
-        data_2x2_in = pd.DataFrame(data=np.array([[0, 10],
-                                                  [1, 20]]),
-                                   index=["min", "max"],
-                                   columns=["feat1", "feat2"]
-                                   )
+        with pytest.raises(AssertionError):
+            create_fact_plan(data_2x2_in, replication_factor="not_an_integer")
+
+    def test_rep_factor_sup1(self):
+
+        with pytest.raises(AssertionError):
+            create_fact_plan(data_2x2_in, replication_factor=1)
+
+    def test_randomization_type(self):
+
+        with pytest.raises(AssertionError):
+            create_fact_plan(data_2x2_in, randomization="foo")
+
+    def test_unknown_method(self):
 
         with pytest.raises(AssertionError):
             create_fact_plan(data_2x2_in, method_choice="foo")
 
     def test_red_ratio_type(self):
-
-        data_2x2_in = pd.DataFrame(data=np.array([[0, 10],
-                                                  [1, 20]]),
-                                   index=["min", "max"],
-                                   columns=["feat1", "feat2"]
-                                   )
 
         with pytest.raises(AssertionError):
             create_fact_plan(data_2x2_in, method_choice="gsd", reduction_ratio="not_an_integer")

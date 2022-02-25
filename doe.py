@@ -1,10 +1,13 @@
-import numpy as np
+import warnings
 import pandas as pd
-
 from pyDOE2 import fullfact, gsd
 
 
-def create_fact_plan(df: pd.DataFrame, method_choice: str = "fullfact", reduction_ratio: int = 2) -> pd.DataFrame:
+def create_fact_plan(df: pd.DataFrame,
+                     replication_factor: int = None,
+                     randomization: bool = False,
+                     method_choice: str = "fullfact",
+                     reduction_ratio: int = 2) -> pd.DataFrame:
 
     r""" This function accepts a DataFrame summarizing the possible levels of different features \
     and returns a DataFrame corresponding to a Design of Experiment.
@@ -30,6 +33,11 @@ def create_fact_plan(df: pd.DataFrame, method_choice: str = "fullfact", reductio
         | avg level | avg level | avg level |    ...    |
         | max level | max level | max level |    ...    |
 
+    replication_factor: int
+        Indicate the number of time the experiments should be replicated.
+
+    randomization: bool
+        Indicate whether a smart randomization of the plan should be executed.
 
     method_choice: str
         Name of the DoE creation method selected ("fullfact" or "gsd").
@@ -53,16 +61,34 @@ def create_fact_plan(df: pd.DataFrame, method_choice: str = "fullfact", reductio
 
     Raises:
     ------
-    - Exception if the DoE method differs from possible options ("fullfact" or "gsd")
-
+    - Exception if the randomization parameter is not boolean.
+    - Exception if the replication_factor is not an integer or not > to 1.
+    - Exception if the reduction_ratio is not an integer.
+    - Exception if the DoE method differs from possible options ("fullfact" or "gsd").
     """
 
     method_options = ["fullfact", "gsd"]
 
+    # Check if the randomization is a boolean
+    assert isinstance(randomization, bool), "randomization should be a boolean (True or False)."
+
+    # Check if the replication_factor is an integer
+    if replication_factor is not None:
+        assert isinstance(replication_factor, int), "replication_factor should be an integer."
+
+    # Check if the replication_factor is > to 1
+    if isinstance(replication_factor, int):
+        assert replication_factor > 1, "replication_factor should be superior to 1."
+
+        # In case replication factor is > to 1 and randomization is activated, issue warning
+        if randomization:
+            warnings.warn("Replication and Randomization could lead to successive identifical trials.")
+
     # Check if the method_choice is part of the possible options
     assert method_choice in method_options, "method_choice should be \"fullfact\" or \"gsd\"."
 
-    assert isinstance(reduction_ratio, int), "reduction_ratio should be an integer."
+    # Check if the reduction_ratio is an integer
+    assert isinstance(reduction_ratio, int), "reduction_ratio should be an integer."     
 
     # Create a list levels number x features
     # Ex. for a 2 features x 2 levels DataFrame: [2, 2]
@@ -88,11 +114,18 @@ def create_fact_plan(df: pd.DataFrame, method_choice: str = "fullfact", reductio
 
         for col_idx in range(df.shape[1]):
 
-            if df.iloc[int(row[col_idx]), col_idx]!= np.nan:
-                plan.iloc[row_idx, col_idx] = df.iloc[int(row[col_idx]), col_idx]
+            plan.iloc[row_idx, col_idx] = df.iloc[int(row[col_idx]), col_idx]
 
     # Reassign the original DataFrame types to the DoE plan
     for column in plan.columns:
         plan[column] = plan[column].astype(df.dtypes[column])
+
+    # Replicate the DataFrame as many times as requested by the replication_factor
+    if isinstance(replication_factor, int):
+        plan = pd.concat([plan]*replication_factor, ignore_index=True)
+
+    # Randomize the DoE
+    if randomization:
+        plan = plan.sample(frac=1).reset_index(drop=True)
 
     return plan
