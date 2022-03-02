@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from pytest import mark
 
-from datascience_common_functions.doe import create_fact_plan
+from doe import create_fact_plan
 
 # 2x2 case
 data_2x2_in = pd.DataFrame(data=np.array([[0, 10],
